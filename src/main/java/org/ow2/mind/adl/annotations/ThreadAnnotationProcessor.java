@@ -61,6 +61,8 @@ import org.ow2.mind.idl.ast.IDL;
 import org.ow2.mind.idl.ast.InterfaceDefinition;
 import org.ow2.mind.io.OutputFileLocator;
 
+import antlr.collections.impl.ASTArray;
+
 import com.google.inject.Inject;
 
 /**
@@ -108,18 +110,24 @@ AbstractADLLoaderAnnotationProcessor {
 				for (Interface itf : itfs) {
 					if (((TypeInterface)itf).getRole().equals(TypeInterface.SERVER_ROLE)){
 						final InterfaceDefinition itfDef = itfSignatureResolverItf.resolve((TypeInterface) itf, upperCompDef, context);
-						//Creating a srv interface with the same signature
-						MindInterface srvItf = ASTHelper.newServerInterfaceNode(nodeFactory, itf.getName() , itfDef.getName());
-						final TypeInterface interceptorSrvType = srvItf;
-						InterfaceDefinitionDecorationHelper.setResolvedInterfaceDefinition(interceptorSrvType, itfDef);
-						((InterfaceContainer) srvInterceptorDef).addInterface(srvItf);
-						srvs.put(srvItf.getName(),itfDef);
+						//Creating a sync srv interface with the same signature
+						MindInterface syncSrvItf = ASTHelper.newServerInterfaceNode(nodeFactory, itf.getName() , itfDef.getName());
+						final TypeInterface interceptorSyncSrvType = syncSrvItf;
+						InterfaceDefinitionDecorationHelper.setResolvedInterfaceDefinition(interceptorSyncSrvType, itfDef);
+						((InterfaceContainer) srvInterceptorDef).addInterface(syncSrvItf);
+						srvs.put(syncSrvItf.getName(),itfDef);
+						
+						//Creating an async srv interface with the same signature
+						MindInterface asyncSrvItf = ASTHelper.newServerInterfaceNode(nodeFactory, itf.getName() + "_async" , itfDef.getName());
+						final TypeInterface interceptorAsyncSrvType = asyncSrvItf;
+						InterfaceDefinitionDecorationHelper.setResolvedInterfaceDefinition(interceptorAsyncSrvType, itfDef);
+						((InterfaceContainer) srvInterceptorDef).addInterface(asyncSrvItf);
+						
 						//Creating a clt interface with the same signature						
 						MindInterface cltItf = ASTHelper.newClientInterfaceNode(nodeFactory, itf.getName() + "_threaded" , itfDef.getName());
 						final TypeInterface interceptorCltType = cltItf;
 						InterfaceDefinitionDecorationHelper.setResolvedInterfaceDefinition(interceptorCltType, itfDef);
 						((InterfaceContainer) srvInterceptorDef).addInterface(cltItf);
-
 					} 
 				}
 			}
@@ -158,8 +166,6 @@ AbstractADLLoaderAnnotationProcessor {
 			Binding[] bindings = ((BindingContainer) upperCompDef).getBindings();
 			for (Binding binding : bindings) {
 				if (binding.getToComponent().equals(threadedComp.getName())){
-					//Re-routing existing binding
-					binding.setToComponent(srvInterceptorComp.getName());
 					//Creating binding from interceptor to comp
 					final Binding interceptorBinding = ASTHelper.newBinding(nodeFactory);
 					interceptorBinding.setFromComponent(srvInterceptorComp.getName());
@@ -167,6 +173,12 @@ AbstractADLLoaderAnnotationProcessor {
 					interceptorBinding.setFromInterface(binding.getToInterface() + "_threaded");
 					interceptorBinding.setToInterface(binding.getToInterface());			
 					((BindingContainer) upperCompDef).addBinding(interceptorBinding);
+					//Re-routing existing binding
+					binding.setToComponent(srvInterceptorComp.getName() );
+					Asynch asynchAnnotation = AnnotationHelper.getAnnotation(binding,Asynch.class);
+					if ((asynchAnnotation != null) && (asynchAnnotation.taskQueue == null)) {
+						binding.setToInterface(binding.getToInterface() + "_async");
+					}
 				}
 			}
 		}

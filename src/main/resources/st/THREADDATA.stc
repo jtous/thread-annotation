@@ -36,7 +36,8 @@ PrivateDataDeclaration(component,interfaces) ::= <<
 #define BUFFER_SIZE 256
 
 typedef enum {
-<interfaces.keys:{k| <itf_meth(interfaceName=k,interfaceDefinition=interfaces.(k) )>}; separator = ",\n">
+<interfaces.keys:{k| <itf_meth(interfaceName=k,interfaceDefinition=interfaces.(k) )>}; separator = ",\n">,
+<interfaces.keys:{k| <itf_meth(interfaceName={<k>_async},interfaceDefinition=interfaces.(k) )>}; separator = ",\n">
 } <component.name;format="pathToCName">_meth_t;
 
 typedef union{

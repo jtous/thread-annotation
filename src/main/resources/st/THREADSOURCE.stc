@@ -47,6 +47,8 @@ InterceptedServerDefinition(component, interfaces) ::= <<
 
 <interfaces.keys:{k|<interfaces.(k).methods:{<InterceptorServerMethod(component=component,interfaceDefinition=interfaces.(k), srvName=k, method=it)>};separator="\n\n">};separator="\n\n">
 
+<interfaces.keys:{k|<interfaces.(k).methods:{<AsyncInterceptorServerMethod(component=component,interfaceDefinition=interfaces.(k), srvName=k, method=it)>};separator="\n\n">};separator="\n\n">
+
 <InterceptorClientExecution(component=component, interfaces=interfaces)>
 
 CONSTRUCTOR() {
@@ -88,6 +90,25 @@ InterceptorServerMethod(component,interfaceDefinition, srvName, method) ::= <<
 }
 >>
 
+AsyncInterceptorServerMethod(component,interfaceDefinition, srvName, method) ::= <<
+<if(method.vaArgs)>
+<mindMethDef(itfName={<srvName>_async}, method=method)> {
+#error va_args not supported on asynchronous call.
+<else>
+<mindMethDef(itfName={<srvName>_async}, method=method)> {
+   	<component.name;format="pathToCName">_marchaled_t tmp;
+	if (!isBufferFull()){
+		tmp.meth = <srvName>_async_<method.name>;
+		bufferWrite(tmp);
+	}
+	<method.parameters:paramToBuff(itfName=srvName,method=method, param=it);separator="\n">
+	pthread_mutex_unlock(&(PRIVATE.pendingEventMutex));
+	return;    
+<endif>
+
+}
+>>
+
 //<methCall(itfName=cltName,method=method)>;
 InterceptorClientExecution( component, interfaces) ::= <<
 
@@ -105,6 +126,7 @@ static void * loop(void* this) {
 			bufferRead(tmp[0]);
 			switch (tmp[0].meth) {
 			<interfaces.keys:{k|<interfaces.(k).methods:{<buffToCall(itfName=k,method=it)>};separator="\n">};separator="\n">
+			<interfaces.keys:{k|<interfaces.(k).methods:{<buffToAsyncCall(itfName=k,method=it)>};separator="\n">};separator="\n">
 			default:
 				break;
 			}
@@ -117,10 +139,15 @@ static void * loop(void* this) {
 buffToCall(itfName,method) ::= <<
 case <itfName>_<method.name>:
 	<paramsRead(method=method)>;					
-	//pthread_mutex_lock(&(PRIVATE.pendingEventMutex));
 	<if(!(isVoidMethod(method=method)))>tmp[0].<itfName>_<method.name>_return = <endif>CALL(<itfName>_threaded,<method.name>)(<paramList(itfName=itfName,method=method)>);
-	//pthread_mutex_unlock(&(PRIVATE.pendingEventMutex));
 	pthread_mutex_unlock(&(PRIVATE.clientMutex));
+	break;
+>>
+
+buffToAsyncCall(itfName,method) ::= <<
+case <itfName>_async_<method.name>:
+	<paramsRead(method=method)>;					
+	CALL(<itfName>_threaded,<method.name>)(<paramList(itfName=itfName,method=method)>);
 	break;
 >>
 

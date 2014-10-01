@@ -1,0 +1,18 @@
+composite **.* {
+	@Asynch
+	binds producer.out to fullRateMax.in;
+	@Asynch
+	binds fullRateMax.out to decimator.fullRate;
+	@Asynch
+	binds decimator.decimated to decimatedMax.in;
+	@Asynch
+	binds decimatedMax.out to consumer.in;
+	@Thread
+	contains **.* as fullRateMax;
+	@Thread
+	contains **.* as decimator;
+	@Thread
+	contains **.* as decimatedMax;
+	@Thread
+	contains **.* as consumer;
+}
