@@ -1,0 +1,77 @@
+template st.THREADDATA : st.interfaces.IDL2C{
+  $${
+
+/**
+ * Copyright (C) 2014 Schneider-Electric
+ *
+ * This file is part of "Mind Compiler" is free software: you can redistribute 
+ * it and/or modify it under the terms of the GNU Lesser General Public License 
+ * as published by the Free Software Foundation, either version 3 of the 
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT 
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Contact: mind@ow2.org
+ *
+ * Authors: Julien Tous
+ * Contributors: 
+ */
+
+isClient ::= [ "client" : "true" ]
+isServer ::= [ "server" : "true" ]
+
+/** 
+ * Generates a ".c" header file.
+ */
+ 
+PrivateDataDeclaration(component,interfaces) ::= <<
+
+#include \<pthread.h\>
+#define BUFFER_SIZE 256
+
+typedef enum {
+<interfaces.keys:{k| <itf_meth(interfaceName=k,interfaceDefinition=interfaces.(k) )>}; separator = ",\n">
+} <component.name;format="pathToCName">_meth_t;
+
+typedef union{
+	<component.name;format="pathToCName">_meth_t meth;
+	<interfaces.keys:{k|<interfaces.(k).methods:enumMethParam(itfName=k, method=it);separator = ";\n">};separator = ";\n">;
+	<interfaces.keys:{k|<interfaces.(k).methods:enumMethReturn(itfName=k, method=it);separator = ";\n">};separator = ";\n">;
+} <component.name;format="pathToCName">_marchaled_t;
+
+typedef struct {
+int size;
+int start;
+int end;
+<component.name;format="pathToCName">_marchaled_t buf[BUFFER_SIZE];
+} <component.name;format="pathToCName">_marchaled_buffer_t;
+
+struct {
+	<component.name;format="pathToCName">_marchaled_buffer_t mBuf;
+	pthread_t thread;
+	pthread_mutex_t pendingEventMutex;
+	pthread_mutex_t accessMutex;
+	pthread_mutex_t clientMutex;
+} PRIVATE;
+
+>>
+
+itf_meth(interfaceName,interfaceDefinition) ::= <<
+<interfaceDefinition.methods:{<interfaceName>_<it.name>}; separator = ",\n">
+>>
+
+enumMethParam(itfName,method) ::= <<
+<method.parameters:{<typeQualifier(qualifiers=it)><varDef(type=it.type, name={<itfName>_<method.name>_<parameterName(it)>})>};separator = ";\n">;
+>>
+enumMethReturn(itfName,method) ::= <<
+<if (!(isVoidMethod(method=method)))><typeQualifier(qualifiers=method)><varDef(type=method.type, name={<itfName>_<method.name>_return})><endif>;
+>>
+  }$$
+}
+  
