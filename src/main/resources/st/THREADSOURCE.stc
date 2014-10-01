@@ -57,11 +57,9 @@ CONSTRUCTOR() {
 	PRIVATE.mBuf.end = 0;
 
 	pthread_create(&(PRIVATE.thread), NULL, loop, _mind_this);
-	pthread_mutex_init(&(PRIVATE.pendingEventMutex), NULL);
-	pthread_mutex_init(&(PRIVATE.clientMutex), NULL);
-	pthread_mutex_init(&(PRIVATE.accessMutex), NULL);
-	pthread_mutex_lock(&(PRIVATE.clientMutex));
-	pthread_mutex_lock(&(PRIVATE.pendingEventMutex));
+	sem_init(&(PRIVATE.pendingEventMutex), 0, 0);
+	sem_init(&(PRIVATE.clientMutex), 0, 0);
+	sem_init(&(PRIVATE.accessMutex), 0, 1);
 }
 
 >>
@@ -82,8 +80,8 @@ InterceptorServerMethod(component,interfaceDefinition, srvName, method) ::= <<
 		bufferWrite(tmp);
 	}
 	<method.parameters:paramToBuff(itfName=srvName,method=method, param=it);separator="\n">
-	pthread_mutex_unlock(&(PRIVATE.pendingEventMutex));
-	pthread_mutex_lock(&(PRIVATE.clientMutex));
+	sem_post(&(PRIVATE.pendingEventMutex));
+	sem_wait(&(PRIVATE.clientMutex));
 	return;    
 <endif>
 
@@ -102,7 +100,7 @@ AsyncInterceptorServerMethod(component,interfaceDefinition, srvName, method) ::=
 		bufferWrite(tmp);
 	}
 	<method.parameters:paramToBuff(itfName=srvName,method=method, param=it);separator="\n">
-	pthread_mutex_unlock(&(PRIVATE.pendingEventMutex));
+	sem_post(&(PRIVATE.pendingEventMutex));
 	return;    
 <endif>
 
@@ -121,7 +119,7 @@ static void * loop(void* this) {
     pthread_sigmask(SIG_SETMASK, &set, NULL);
 	
 	while(1) {
-		pthread_mutex_lock(&(PRIVATE.pendingEventMutex));
+		sem_wait(&(PRIVATE.pendingEventMutex));
 		if (!isBufferEmpty()) {
 			bufferRead(tmp[0]);
 			switch (tmp[0].meth) {
@@ -140,7 +138,7 @@ buffToCall(itfName,method) ::= <<
 case <itfName>_<method.name>:
 	<paramsRead(method=method)>;					
 	<if(!(isVoidMethod(method=method)))>tmp[0].<itfName>_<method.name>_return = <endif>CALL(<itfName>_threaded,<method.name>)(<paramList(itfName=itfName,method=method)>);
-	pthread_mutex_unlock(&(PRIVATE.clientMutex));
+	sem_post(&(PRIVATE.clientMutex));
 	break;
 >>
 

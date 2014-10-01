@@ -33,6 +33,7 @@ isServer ::= [ "server" : "true" ]
 PrivateDataDeclaration(component,interfaces) ::= <<
 
 #include \<pthread.h\>
+#include \<semaphore.h\>
 #define BUFFER_SIZE 256
 
 typedef enum {
@@ -56,9 +57,9 @@ int end;
 struct {
 	<component.name;format="pathToCName">_marchaled_buffer_t mBuf;
 	pthread_t thread;
-	pthread_mutex_t pendingEventMutex;
-	pthread_mutex_t accessMutex;
-	pthread_mutex_t clientMutex;
+	sem_t pendingEventMutex;
+	sem_t accessMutex;
+	sem_t clientMutex;
 } PRIVATE;
 
 >>
